@@ -19,7 +19,7 @@ class AudioAttackTranslate(AudioAttackHallucinate):
     '''
     def __init__(self, attack_args, whisper_model, device, lr=1e-3, multiple_model_attack=False, attack_init='random'):
         AudioAttackHallucinate.__init__(self, attack_args, whisper_model, device, lr=lr, multiple_model_attack=multiple_model_attack, attack_init=attack_init)
-        self.max_length = 400
+        self.max_length = 400                                  # 教师强制最大序列长度
 
 
     def _loss(self, input_ids, logits, seq_len):
@@ -41,21 +41,22 @@ class AudioAttackTranslate(AudioAttackHallucinate):
             self.audio_attack_model.len_sot_ids
 
         '''
+        # 通过教师强制的交叉熵，引导模型在有攻击段时生成翻译序列
         # Get the length of the starting tokens
-        len_sot_ids = self.audio_attack_model.len_sot_ids
+        len_sot_ids = self.audio_attack_model.len_sot_ids      # 起始 token 长度
         
         # Shift logits to match the input_ids
-        shifted_logits = logits[:, len_sot_ids-1:-1, :]
+        shifted_logits = logits[:, len_sot_ids-1:-1, :]        # 对齐到标签长度
 
         # Flatten logits and targets for cross-entropy
-        batch_size, max_len_sequence = input_ids.size()
-        vocab_size = logits.size(-1)
+        batch_size, max_len_sequence = input_ids.size()        # 取 batch 和序列长
+        vocab_size = logits.size(-1)                           # 词表大小
         
         # Create a mask based on sequence lengths
-        mask = torch.arange(max_len_sequence, device=self.device).expand(batch_size, max_len_sequence) < seq_len.unsqueeze(1)
+        mask = torch.arange(max_len_sequence, device=self.device).expand(batch_size, max_len_sequence) < seq_len.unsqueeze(1)  # 有效位掩码
         
         # Flatten the mask
-        mask = mask.view(-1)
+        mask = mask.view(-1)                                   # 拉平掩码
         
         # Compute the loss
         loss = F.cross_entropy(
@@ -65,10 +66,10 @@ class AudioAttackTranslate(AudioAttackHallucinate):
         )
         
         # Apply the mask
-        loss = loss * mask
+        loss = loss * mask                                     # 只保留有效位
         
         # Sum the losses and divide by the number of non-padded tokens
-        loss = loss.sum() / mask.sum().float()
+        loss = loss.sum() / mask.sum().float()                 # 归一化平均
         
         return loss
 

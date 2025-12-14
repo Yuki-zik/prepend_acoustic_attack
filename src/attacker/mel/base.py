@@ -1,9 +1,9 @@
-import torch
-from tqdm import tqdm
-import json
-import os
+import torch                                          # 张量/设备
+from tqdm import tqdm                                 # 进度条
+import json                                           # 缓存读写
+import os                                             # 文件操作
 
-from whisper.tokenizer import get_tokenizer
+from whisper.tokenizer import get_tokenizer           # Whisper tokenizer
 from whisper.audio import (
     FRAMES_PER_SECOND,
     HOP_LENGTH,
@@ -13,8 +13,8 @@ from whisper.audio import (
     log_mel_spectrogram,
     pad_or_trim,
 )
-from src.tools.tools import eval_neg_seq_len
-from .softprompt_model_wrapper import SoftPromptModelWrapper
+from src.tools.tools import eval_neg_seq_len          # 负序列长指标
+from .softprompt_model_wrapper import SoftPromptModelWrapper  # 软提示包装器
 
 
 class MelBaseAttacker():
@@ -22,22 +22,23 @@ class MelBaseAttacker():
         Base class for whitebox attack on Whisper Model in mel-vector space
     '''
     def __init__(self, attack_args, model, device):
-        self.attack_args = attack_args
-        self.whisper_model = model # assume it is a whisper model
-        self.tokenizer = get_tokenizer(self.whisper_model.model.is_multilingual, num_languages=self.whisper_model.model.num_languages, task=self.whisper_model.task)
-        self.device = device
+        self.attack_args = attack_args                                  # 保存攻击参数
+        self.whisper_model = model # assume it is a whisper model       # 目标模型
+        self.tokenizer = get_tokenizer(self.whisper_model.model.is_multilingual, num_languages=self.whisper_model.model.num_languages, task=self.whisper_model.task)  # tokenizer
+        self.device = device                                            # 设备
         # model wrapper with softprompting ability in mel-vector space
-        self.softprompt_model = SoftPromptModelWrapper(self.tokenizer, device=device).to(device)
+        self.softprompt_model = SoftPromptModelWrapper(self.tokenizer, device=device).to(device)  # 可学习 mel 软提示模型
 
     def audio_to_mel(self, audio):
         '''
             Get sequence of mel-vectors
         '''
+        # 将语音转换为固定长度的 mel 频谱，便于拼接软提示
         # 30s of silence added to audio and then calculate mel vectors
-        mel = log_mel_spectrogram(audio, self.whisper_model.model.dims.n_mels, padding=N_SAMPLES)
+        mel = log_mel_spectrogram(audio, self.whisper_model.model.dims.n_mels, padding=N_SAMPLES)  # 加 30s padding 计算 log-mel
 
         # truncate such that the total audio is of length N_FRAMES
-        mel = pad_or_trim(mel, N_FRAMES)
+        mel = pad_or_trim(mel, N_FRAMES)                                 # 截断/填充到固定帧
         return mel
     
     def eval_uni_attack(self, data, softprompt_model_dir=None, attack_epoch=-1, k_scale=1, cache_dir=None, force_run=False):
@@ -49,36 +50,36 @@ class MelBaseAttacker():
             attack_epoch indicates the checkpoint of the learnt mel vectors from training that should be used
                 -1 indicates that no-attack should be evaluated
         '''
-        # check for cache
+        # 先查缓存，避免重复解码
         if k_scale > 1:
-            fpath = f'{cache_dir}/epoch-{attack_epoch}_k{k_scale}_predictions.json'
+            fpath = f'{cache_dir}/epoch-{attack_epoch}_k{k_scale}_predictions.json'  # 缩放系数>1 单独命名
         else:
             fpath = f'{cache_dir}/epoch-{attack_epoch}_predictions.json'
-        if os.path.isfile(fpath) and not force_run:
+        if os.path.isfile(fpath) and not force_run:                                   # 若有缓存且不强制重算
             with open(fpath, 'r') as f:
-                hyps = json.load(f)
+                hyps = json.load(f)                                                   # 读预测
             
-            nsl = eval_neg_seq_len(hyps)
+            nsl = eval_neg_seq_len(hyps)                                              # 计算指标
             return nsl
         
         # no cache
         if attack_epoch == -1:
-            do_mel_attack = False
+            do_mel_attack = False                                                    # -1 表示不插入攻击
         else:
             # load model with attack_mel vectors -- note if epoch=0, that is a rand mel vector attack
-            do_mel_attack = True
+            do_mel_attack = True                                                     # 需要攻击
             if attack_epoch > 0:
-                self.softprompt_model.load_state_dict(torch.load(f'{softprompt_model_dir}/epoch{attack_epoch}/model.th'))
+                self.softprompt_model.load_state_dict(torch.load(f'{softprompt_model_dir}/epoch{attack_epoch}/model.th'))  # 加载指定 checkpoint
 
-        hyps = []
+        hyps = []                                                                    # 保存预测
         for sample in tqdm(data):
             with torch.no_grad():
-                hyp = self.softprompt_model.transcribe(self.whisper_model, sample['audio'], do_mel_attack=do_mel_attack, k_scale=k_scale)
+                hyp = self.softprompt_model.transcribe(self.whisper_model, sample['audio'], do_mel_attack=do_mel_attack, k_scale=k_scale)  # 推理
             hyps.append(hyp)
-        nsl = eval_neg_seq_len(hyps)
+        nsl = eval_neg_seq_len(hyps)                                                 # 计算负序列长度
 
         if cache_dir is not None:
             with open(fpath, 'w') as f:
-                json.dump(hyps, f)
+                json.dump(hyps, f)                                                   # 缓存预测
 
         return nsl

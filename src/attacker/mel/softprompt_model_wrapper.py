@@ -54,6 +54,7 @@ class SoftPromptModelWrapper(nn.Module):
             Returns the logits for the first transcribed token
         '''
 
+        # 在 mel 频谱前追加可学习软提示向量
         # prepend softprompt
         mels = mels[:,:,:-self.num_vectors]
         X = self.softprompt.unsqueeze(0).expand(mels.size(0), -1, -1)
@@ -67,6 +68,7 @@ class SoftPromptModelWrapper(nn.Module):
             expect mel vectors passed as a batch and padded to 30s of audio length
             mel: torch.Tensor [B x dim x num_vectors]
         '''
+        # 将 mel 输入与 SOT token 组合喂入解码器，返回 logits
         # create batch of start of transcript tokens
         sot_ids = torch.tensor(self.tokenizer.sot_sequence_including_notimestamps)
         sot_ids = sot_ids.to(self.device)
@@ -105,6 +107,7 @@ class SoftPromptModelWrapper(nn.Module):
                  https://github.com/openai/whisper/blob/main/whisper/transcribe.py
         '''
 
+        # 基于官方 transcribe 逻辑，额外控制是否注入软提示并支持缩放
         dtype = torch.float16 if decode_options.get("fp16", True) else torch.float32
         if dtype == torch.float32:
             decode_options["fp16"] = False

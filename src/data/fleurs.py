@@ -29,6 +29,7 @@ def _fleurs(lang='fr', use_pred_for_ref=False, model_name=None, device=None):
         tuple: Parallel training and test samples if a language pair is specified,
                otherwise training and test samples for the specified language.
     """
+    # 单语言直接返回转写任务，多语言则走平行语料构建
     if '_' in lang:
         return _fleurs_parallel(lang, use_pred_for_ref, model_name, device)
     else:
@@ -52,6 +53,7 @@ def _prep_samples(data, use_pred_for_ref, model_name, lang, task, split, device)
     Returns:
         list: List of dictionaries containing 'ref' and 'audio' keys.
     """
+    # 可选择使用模型预测作为参考转写，并将结果缓存以节省重复计算
     cache_dir = os.path.join(CACHE_DIR, lang, model_name or "default", task, split)
     os.makedirs(cache_dir, exist_ok=True)
     
@@ -106,6 +108,7 @@ def _fleurs_parallel(lang_pair='fr_en', use_pred_for_ref=False, model_name=None,
     Returns:
         tuple: Parallel training and test samples.
     """
+    # 为翻译任务准备双语对齐样本，必要时用模型生成目标语参考
     src_lang, tgt_lang = lang_pair.split('_')
     
     # Load datasets for source and target languages
@@ -148,6 +151,7 @@ def _prep_parallel_samples(src_data, tgt_data, common_ids, use_pred_for_ref, mod
     Returns:
         list: List of dictionaries containing 'audio', 'ref', 'audio_tgt', and 'ref_src' keys.
     """
+    # 根据公共句子 ID 对齐双语样本，并按需缓存模型生成的译文
     whisper_model_tgt = None
     if use_pred_for_ref:
         if 'canary' in model_name:

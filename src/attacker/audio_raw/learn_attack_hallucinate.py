@@ -17,7 +17,7 @@ class AudioAttackHallucinate(AudioAttack):
     '''
     def __init__(self, attack_args, whisper_model, device, lr=1e-3, multiple_model_attack=False, attack_init='random'):
         AudioAttack.__init__(self, attack_args, whisper_model, device, lr=lr, multiple_model_attack=multiple_model_attack, attack_init=attack_init)
-        self.max_length = 400
+        self.max_length = 400                                       # 限制教师强制序列长度
 
 
     def _loss(self, logits, seq_len):
@@ -27,18 +27,19 @@ class AudioAttackHallucinate(AudioAttack):
         logits: Torch.tensor [batch x seq_len x vocab_size]
         seq_len: Torch.tensor [batch]
         '''
+        # 目标：让 EOT 在长序列末尾才出现，从而诱导生成幻觉内容
         tgt_id = self._get_tgt_tkn_id()
 
         # Compute log probabilities over the vocabulary dimension
-        sf = nn.Softmax(dim=2)
-        log_probs = torch.log(sf(logits))
+        sf = nn.Softmax(dim=2)                                     # 对 vocab 维 softmax
+        log_probs = torch.log(sf(logits))                          # 对数概率
         
         # Gather the log probabilities for the target positions and target token
-        batch_indices = torch.arange(logits.size(0), device=logits.device)
-        tgt_probs = log_probs[batch_indices, seq_len-1, tgt_id]
+        batch_indices = torch.arange(logits.size(0), device=logits.device)  # batch 索引
+        tgt_probs = log_probs[batch_indices, seq_len-1, tgt_id]             # 取每句末尾位置的目标概率
 
 
-        return -1/torch.mean(tgt_probs)
+        return -1/torch.mean(tgt_probs)                           # 负倒数平均，鼓励延迟 EOT
     
 
     def train_step(self, train_loader, epoch, print_freq=25):

@@ -66,6 +66,7 @@ class SoftPromptAttack(MelBaseAttacker):
             loss.backward()
             self.optimizer.step()
 
+            # 如需限制幅度，训练后在参数上直接进行裁剪
             if self.attack_args.clip_val != -1:
                 with torch.no_grad():  
                     self.softprompt_model.softprompt.clamp_(max=self.attack_args.clip_val)

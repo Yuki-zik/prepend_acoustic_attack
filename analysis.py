@@ -29,7 +29,7 @@ from src.attacker.selector import select_eval_attacker
 
 if __name__ == "__main__":
 
-    # get command line arguments
+    # 获取命令行参数：基础配置、攻击配置以及分析选项
     core_args, c = core_args()
     attack_args, a = attack_args()
     analysis_args, _ = analysis_args()
@@ -65,7 +65,7 @@ if __name__ == "__main__":
             device = get_default_device(core_args.gpu_id)
         print(device)
 
-        # Load the model
+        # 加载模型并取出解码端投影矩阵
         whisper_model = load_model(core_args, device=device)
         model = whisper_model.model
 
@@ -108,7 +108,7 @@ if __name__ == "__main__":
         model_m = whisper_model.models[0]
         model_n = whisper_model.models[1]
 
-        # get projection matrices
+        # 分别获取两套模型的投影矩阵，评估跨模型迁移的相似度
         W_m = get_decoder_proj_mat(model_m)
         W_n = get_decoder_proj_mat(model_n)
 
@@ -120,7 +120,7 @@ if __name__ == "__main__":
         # measure change (score) in rel_pos across the different models
         diff = torch.linalg.norm(rel_pos_m - rel_pos_n, dim=1)
 
-        # get the score for the target eot token
+        # 计算目标 eot token 的差异得分
         eot_id = whisper_model.tokenizer.eot
         eot_score = diff[eot_id].item()
         print('EOT score:', eot_score)
@@ -155,7 +155,7 @@ if __name__ == "__main__":
         if attack_args.eval_train:
             test_data = train_data
 
-        # get indices of (un)/successful attack hyps
+        # 根据预测长度将样本拆分为攻击成功（空输出）与失败两组
         with open(attack_hyp_file, 'r') as f:
             attack_hyps = json.load(f)
         
@@ -167,7 +167,7 @@ if __name__ == "__main__":
         unsuccess_data = [test_data[ind] for ind in inds]
         unsuccess_sample = unsuccess_data[1]
 
-        # Load the model
+        # 加载模型与攻击器，之后针对成功/失败样本分别绘制帧级显著性
         whisper_model = load_model(core_args, device=device)
 
         # Load the attack model wrapper
@@ -176,7 +176,7 @@ if __name__ == "__main__":
         attack_model_dir = f'{attack_base_path_creator_train(attack_args, base_path)}/prepend_attack_models'
         audio_attack_model.load_state_dict(torch.load(f'{attack_model_dir}/epoch{attack_args.attack_epoch}/model.th'))
 
-        # compute frame-level saliency
+        # 计算帧级显著性
         success_saliencies = frame_level_saliency(success_sample['audio'], audio_attack_model, whisper_model, device)
         unsuccess_saliencies = frame_level_saliency(unsuccess_sample['audio'], audio_attack_model, whisper_model, device)
 
@@ -239,7 +239,7 @@ if __name__ == "__main__":
         unsuccess_data = [test_data[ind] for ind in inds]
 
 
-        # Load the model
+        # 加载模型与攻击器参数（从指定 epoch 的 checkpoint 读取）
         whisper_model = load_model(core_args, device=device)
 
         # Load the attack model wrapper
@@ -251,7 +251,7 @@ if __name__ == "__main__":
             attack_model_dir = attack_args.attack_model_dir
         audio_attack_model.load_state_dict(torch.load(f'{attack_model_dir}/epoch{attack_args.attack_epoch}/model.th'))
 
-        # Compute saliencies - unsuccessful attacks
+        # 统计攻击失败样本的显著性均值与方差
         print('UNSUCCESSFUL ATTACKS')
         adv_sals = []
         non_adv_sals = []
@@ -266,7 +266,7 @@ if __name__ == "__main__":
         print("-----------------------------------------------------")
         print()
 
-        # Compute saliencies - successful attacks
+        # 统计攻击成功样本的显著性均值与方差
         print('SUCCESSFUL ATTACKS')
         adv_sals = []
         non_adv_sals = []
@@ -300,7 +300,7 @@ if __name__ == "__main__":
         with open(analysis_args.attack_path, 'r') as f:
             attack_hyps = json.load(f)
         
-        # get indices of unsuccessful attack hyps
+        # 只保留非空预测（攻击失败）的索引，用于对比攻击前后 WER
         inds = [i for i in range(len(attack_hyps)) if len(attack_hyps[i])!=0]
 
         ahyps = [attack_hyps[ind] for ind in inds]
@@ -350,7 +350,7 @@ if __name__ == "__main__":
 
         # repeat for successful samples
 
-        # get indices of unsuccessful attack hyps
+        # 只保留空预测（攻击成功）的索引，重复同样的对比
         inds = [i for i in range(len(attack_hyps)) if len(attack_hyps[i])==0]
 
         ahyps = [attack_hyps[ind] for ind in inds]
@@ -409,7 +409,7 @@ if __name__ == "__main__":
             attack_base_path = None
 
 
-        # Get the device
+        # 选择设备并加载模型/攻击器，用于导出对抗段或对比真实音频
         if core_args.force_cpu:
             device = torch.device('cpu')
         else:

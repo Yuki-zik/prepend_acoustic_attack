@@ -13,29 +13,30 @@ class AudioBaseAttacker():
         Base class for whitebox attack on Whisper Model in raw audio space
     '''
     def __init__(self, attack_args, model, device, attack_init='random'):
-        self.attack_args = attack_args
-        self.whisper_model = model # may be canary model
-        self.device = device
+        self.attack_args = attack_args                                    # 攻击参数
+        self.whisper_model = model # may be canary model                  # 目标模型（Whisper/Canary）
+        self.device = device                                             # 设备
 
         # model wrapper with audio attack segment prepending ability
         if 'whisper' in model.model_name:
-            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)
+            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Whisper 版本包装
         elif 'canary' in model.model_name:
-            self.audio_attack_model = AudioAttackCanaryModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)
+            self.audio_attack_model = AudioAttackCanaryModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Canary 版本包装
 
 
     def _get_tgt_tkn_id(self):
         if self.attack_args.attack_token == 'eot':
             try:
-                eot_id =  self.whisper_model.tokenizer.eot
+                eot_id =  self.whisper_model.tokenizer.eot    # Whisper eot
             except:
                 # canary model
-                eot_id = self.whisper_model.tokenizer.eos_id
+                eot_id = self.whisper_model.tokenizer.eos_id  # Canary eos
             return eot_id
         elif self.attack_args.attack_token == 'transcribe':
-            return self.whisper_model.tokenizer.transcribe
+            return self.whisper_model.tokenizer.transcribe    # Canary transcribe token
 
     def evaluate_metrics(self, hyps, refs_data, metrics, frac_lang_languages, attack=False):
+        # 根据配置动态计算多种指标，方便统一评估
         refs = [d['ref'] for d in refs_data]
         results = {}
         if 'nsl' in metrics:
@@ -88,7 +89,7 @@ class AudioBaseAttacker():
             attack_epoch indicates the checkpoint of the learnt attack from training that should be used
                 -1 indicates that no-attack should be evaluated
         '''
-        # check for cache
+        # 如缓存存在且未强制重新运行，直接加载预测结果
         fpath = f'{cache_dir}/epoch-{attack_epoch}_predictions.json'
         if os.path.isfile(fpath) and not force_run:
             with open(fpath, 'r') as f:
