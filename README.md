@@ -1,22 +1,21 @@
-# Overview
+# 概览
 
-This is the offical codebase for the Paper _Muting Whisper: A Universal Acoustic Adversarial Attack on Speech Foundation Models_. This work is published as a main conference paper at EMNLP 2024.
+这是论文《Muting Whisper: A Universal Acoustic Adversarial Attack on Speech Foundation Models》的官方代码库。该工作作为主会论文发表于 EMNLP 2024。
 
-## Abstract
-Recent developments in large speech foundation models like Whisper have led to their widespread use in many automatic speech recognition (ASR) applications. These systems incorporate _special tokens_ in their vocabulary, such as `<endoftext>`, to guide their language generation process. However, we demonstrate that these tokens can be exploited by adversarial attacks to manipulate the model's behavior. We propose a simple yet effective method to learn a universal acoustic realization of Whisper's `<endoftext>` token, which, when prepended to any speech signal, encourages the model to ignore the speech and only transcribe the special token, effectively _muting_ the model. Our experiments demonstrate that the same, universal 0.64-second adversarial audio segment can successfully mute a target Whisper ASR model for over 97% of speech samples. Moreover, we find that this universal adversarial audio segment often transfers to new datasets and tasks. Overall this work demonstrates the vulnerability of Whisper models to _muting_ adversarial attacks, where such attacks can pose both risks and potential benefits in real-world settings: for example the attack can be used to bypass speech moderation systems, or conversely the attack can also be used to protect private speech data.
+## 摘要
+近来 Whisper 等大型语音基础模型被广泛用于自动语音识别 (ASR)。这些系统的词表包含 `<endoftext>` 等“特殊符号”来引导生成。我们展示这些符号可被对抗攻击利用来操控模型行为。本文提出一种简单有效的方法，学习 Whisper `<endoftext>` 符号的通用声学实现：将其预置于任意语音前可促使模型忽略语音、仅转写该符号，从而“静音”模型。实验表明，同一个 0.64 秒的通用对抗音频段能在 97% 以上的语音样本上成功静音目标 Whisper ASR 模型，并且常能迁移到新数据集与任务。该结果揭示 Whisper 对“静音”对抗攻击的脆弱性：既可能被用于绕过语音审核，也可能用于保护私人语音数据。
 
-# Try it out
+# 试用
 
-We have uploaded all the pre-learnt universal acoustic adversarial attack segments in   `./audio_attacks/`. Open `demo.ipynb` and try evaluating them for yourself. Observe how these attacks can successfully mute Whisper models for unseen speech signals.
+已将全部预训练的通用声学对抗段放在 `./audio_attacks/`。打开 `demo.ipynb` 运行并体验，观察这些攻击如何在未见语音上静音 Whisper。
 
-# Quick Start (Running the Code)
+# 快速开始（运行代码）
 
+以下为复现论文结果的训练、评估与分析示例命令。
 
-The following subsections give example commands to run the training, evaluations and analysis necessary to reproduce the results in our paper.
+论文中的模型命名与代码中的 `model_name` 对照如下：
 
-In the paper, `tiny`, `base`, `small` and `medium` refer to the multi-lingual versions of the Whisper models, whilst `tiny.en`, `base.en`, `small.en` and `medium.en` refer to the English-only versions of the Whisper Models (this is the nomenclature used in the original Whisper paper). However, we use a slightly different naming convention in the codebase when specifying the model name as an argument to the scripts. The Table below gives the mapping from the names used in the paper and the equivalent names used in the codebase.
-
-| Model name in paper | `model_name` in codebase |
+| 论文中的模型名 | 代码中的 `model_name` |
 | --------------- | ------------------- |
 | tiny.en | whisper-tiny |
 | tiny | whisper-tiny-multi |
@@ -27,97 +26,79 @@ In the paper, `tiny`, `base`, `small` and `medium` refer to the multi-lingual ve
 | medium.en | whisper-medium |
 | medium | whisper-medium-multi |
 
+## 环境安装
 
+最新版在 python>=3.10 上测试。
 
-## Package Installation
-
-The latest version of the code was tested on python>=3.10
-
-Fork the repository and then git clone
+Fork 仓库并 clone：
 
 `git clone https://github.com/<username>/prepend_acoustic_attack`
 
-Install all necessary packages by creating a conda environment from the existing `environment_py310.yml` file.
+使用 `environment_py310.yml` 创建 conda 环境并安装依赖：
 
 ```
 conda env create -f environment_py310.yml
 conda activate env_py310
 ```
 
-The older version of the code was tested on python>=3.9. It associated environment is `environment.yml`. Note that this environment does not support canary.
+旧版在 python>=3.9 上测试，对应环境文件为 `environment.yml`（不支持 canary）。
 
+## 攻击配置的通用参数
 
-## Standard Arguments for Attack Configuration
+所有脚本的参数见 `src/tools/args.py`。主要攻击相关参数：
 
-You can see all the arguments used in the different scripts in `src/tools/args.py`.
+- `model_name`：要学习通用攻击的 Whisper 模型。
+- `attack_method`：声学攻击形式，本论文使用 `audio-raw`。
+- `clip_val`：攻击音频段最大幅度（可感知性），论文用 `0.02`。
+- `attack_size`：对抗音频帧数，标准为 `10240`，即 16kHz 约 0.64 秒。
+- `data_name`：训练/评估所用数据集。训练在验证集上；测试可传列表。
+- `task`：`transcribe` 或 `translate`（仅多语模型支持）。
+- `language`：源语种，默认 `en`。
 
-The following arguments specify the attack configuration:
+## 学习通用预置声学攻击
 
-- `model_name` : The specific Whisper model to learn the universal attack on.
-- `attack_method`: What form of acoustic attack to learn. For this paper, we always use `audio-raw`.
-- `clip_val` : The maximum amplitude (for imperceptibility) of the attack audio segment. Set to `0.02` in the paper.
-- `attack_size` : The number of audio frames in the adversarial audio segment. Standard setting is `10,240`, which is equivalent to 0.64 seconds of adversarial audio, for audio sampled at 16kHz.
-- `data_name` : The dataset on which the universal attack is to be trained / evaluated. Note that training is on the validation split of the dataset. A list of datasets can also be passed here for certain functionalities at test time.
-- `task` : This can either be `transcribe` or `translate`. This specifies the task that the Whisper model is required to do. Note that `translate` is only possible for the multi-lingual models.
-- `language`: The source audio language. By default is `en`.
+`train_attack.py` 用于在任意 Whisper 模型上学习通用攻击。可用附加参数：
 
-## Learning a universal prepend acoustic attack
+- `max_epochs`：最大学习轮次。论文配置：tiny(40)、base(40)、small(120)、medium(160)。
+- `bs`：训练批大小。
+- `save_freq`：保存已学得攻击段的频率。
 
-`train_attack.py` can be used to learn a universal acoustic attack on any of the Whisper models. The following extra arguments may be of use:
-
-- `max_epochs` : Maximum number of epochs to run the gradient-descent based training to learn the universal attack. In the paper we have the following configurations: tiny (40), base (40), small (120) and medium (160).
-- `bs` : The batch size for learning the attack
-- `save_freq` : The frequency of saving the learnt attack audio segment during the learning of the attack.
-
-An example command for learning an attack is given below.
-
+示例：
 `python train_attack.py --model_name whisper-base-multi --data_name librispeech --attack_method audio-raw --max_epochs 40 --clip_val 0.02 --attack_size 10240 --save_freq 10`
 
-## Evaluating a universal prepend acoustic attack
+## 评估通用预置声学攻击
 
-`eval_attack.py` is used to evaluate the efficacy of the attacks. Running the evaluation script evaluates the _no attack_ setting (the test audio samples are not modified) and the _attack_ setting (the test audio samples have the universal acoustic attack segment prepended in the raw audio space). For each setting, two metrics are reported:
+`eval_attack.py` 评估攻击效果，会同时评估“无攻击”（音频不改）与“有攻击”（预置通用对抗段）。报告两项指标：
 
-1. **NSL** (Negative Sequence Length) - The (negative) average sequence length in words of the model predictions. The adversary aims to maximize this (as close to 0 as possible).
-2. **frac 0** - The fraction of test samples for which the predicted sequence length was of length 0. This represents the fraction of _fully successful_ adversarial attacks, as the universal attack successfully _mutes_ the Whisper model at test time on these unseen test samples.
+1. **NSL**（Negative Sequence Length）：模型输出的平均词长取负值；越接近 0 越好。
+2. **frac 0**：预测长度为 0 的样本占比，即完全成功静音的比例。
 
-During evaluation the following extra arguments may be of use:
+评估可用的附加参数：
 
-- `attack_epoch` : Each universal attack is trained for multiple epochs (until `max_epochs`). This argument allows you to select which trained version of the attack to evaluate. Note that you would have to set an appropriate `save_freq` for the trained universal attack segment to be saved at the selected `attack_epoch`
-  
-- `not-none` : Simply pass this argument if you do not want the evaluation script to evaluate the _no attack_ setting.
+- `attack_epoch`：选择评估训练到某个 epoch 的攻击；需与训练时的 `save_freq` 匹配。
+- `not-none`：传入后不评估“无攻击”设置。
 
-An example command for evaluation is given below:
-
+示例：
 `python eval_attack.py --model_name whisper-medium-multi --data_name librispeech --attack_method audio-raw --clip_val 0.02 --attack_size 10240 --attack_epoch 160 --not_none`
 
+### 迁移攻击评估
 
-### Transfer attack evaluation
+可评估攻击在不同数据集/任务上的迁移：
 
-Beyond just evaluating the learnt universal adversarial attacks in the _matched_ setting, where the same dataset (attack is learnt on the validation split and evaluated on the test split) and same model are used, we can also evaluate how well the attack _transfers_ to different datasets and even tasks.
+- `transfer`：传入表示迁移实验。
+- `attack_model_dir`：学得的通用攻击段所在模型包装目录（训练时自动创建）。
 
-To evaluate the transferability the following further arguments are required:
-
-- `transfer` : Simply pass this flag to indicate it is a transferability experiment
-
-- `attack_model_dir` : This specifies the path to the model directory with the saved model wrapper containing the learnt universal attack segment. During training these directories and paths are automatically created. Refer to the example below to see the typical structure of these paths.
-
-The below example looks at the transferability of an attack learnt on _librispeech_ to the _tedlium_ dataset.
-
+示例：将 _librispeech_ 上学得的攻击迁移到 _tedlium_：
 `python eval_attack.py --model_name whisper-medium --data_name tedlium --attack_method audio-raw --attack_epoch 160 --attack_size 10240 --transfer --attack_model_dir experiments/librispeech/whisper-medium/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models/ --not_none`
 
-
-The next examples looks at the transferability of an attack learnt on _librispeech_ for the _transcribe_ task, to the _fleurs_ French dataset for the _translate_ task.
-
+示例：将 _librispeech_ 上为 _transcribe_ 任务学得的攻击迁移到 _fleurs_ 法语数据集的 _translate_ 任务：
 `python eval_attack.py --model_name whisper-tiny-multi --data_name fleurs --attack_size 10240 --language fr --task translate --attack_method audio-raw --attack_epoch 40 --transfer --attack_model_dir experiments/librispeech/whisper-tiny-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models/ --not_none`
 
+# 引用
 
-# Citation
+如果使用了本代码库或其一部分，请引用相关工作。
 
-If you use this codebase or a part of this codebase, please cite our relevant work.
-
-
-Muting Whisper work published at EMNLP 2024.
-
+EMNLP 2024 “Muting Whisper”：
 ```bibtex
 @inproceedings{raina-etal-2024-muting,
     title = "Muting Whisper: A Universal Acoustic Adversarial Attack on Speech Foundation Models",
@@ -140,9 +121,7 @@ Muting Whisper work published at EMNLP 2024.
 }
 ```
 
-
-Parts of this codebase can also be used for a separate, but related work: Controlling Whisper work published at SLT 2024.
-
+SLT 2024 相关工作 “Controlling Whisper”：
 ```bibtex
 @misc{raina2024controllingwhisperuniversalacoustic,
       title={Controlling Whisper: Universal Acoustic Adversarial Attacks to Control Speech Foundation Models}, 
