@@ -1,17 +1,16 @@
-LIBRISPEECH_DIR = '/home/vr313/rds/rds-altaslp-8YSp2LXTlkY/data/librispeech'      # LibriSpeech 根目录
-TEDLIUM_DIR = '/home/vr313/rds/rds-altaslp-8YSp2LXTlkY/data/tedlium/tedlium/test/' # TedLium3 测试集根目录
-MGB_DIR = '/home/vr313/rds/rds-altaslp-8YSp2LXTlkY/data/mvse/MGB-3/mgb3/test/'     # MGB-3 测试集根目录
-ARTIE_DIR = '/home/vr313/rds/rds-altaslp-8YSp2LXTlkY/data/artie-bias-corpus/data/' # ARTIE 偏见数据根目录
+LIBRISPEECH_DIR = '/root/autodl-tmp/prepend_acoustic_attack/data/librispeech/LibriSpeech'      # LibriSpeech 根目录
+TEDLIUM_DIR = '/root/autodl-tmp/prepend_acoustic_attack/data/tedlium/tedlium/test/' # TedLium3 测试集根目录
+MGB_DIR = '/root/autodl-tmp/prepend_acoustic_attack/data/mvse/MGB-3/mgb3/test/'     # MGB-3 测试集根目录
+ARTIE_DIR = '/root/autodl-tmp/prepend_acoustic_attack/data/artie-bias-corpus/data/' # ARTIE 偏见数据根目录
 
 def _librispeech(sub_dir):
     '''
         for clean audio, set `sub_dir' to dev_clean/test_clean as dev/test sets
         for noisy audio, set `sub_dir' to dev_other/test_other as dev/test sets
     '''
-    # 读取事先生成的“音频-转写”列表，并可调整用户路径前缀
-    return _process(f'{LIBRISPEECH_DIR}/{sub_dir}/audio_ref_pair_list', ['rm2114', 'vr313'])
-    
-
+    # 原来是: return _process(..., ['rm2114', 'vr313'])
+    # 改成:
+    return _process(f'{LIBRISPEECH_DIR}/{sub_dir}/audio_ref_pair_list')
 def _tedlium():
     '''
         Returns the test split for TedLium3 dataset
@@ -33,6 +32,12 @@ def _artie():
 
 def _process(fname, replace_user=None):
     audio_transcript_pair_list = []                   # 存放解析后的样本字典
+    # === 🔴 请插入下面这 3 行调试代码 ===
+    # import os
+    # print(f"\n[DEBUG] Python试图打开的路径: {fname}")
+    # print(f"[DEBUG] 路径的真实身份 (repr): {repr(fname)}")  # 这行能显示出隐藏的 \n 或空格
+    # print(f"[DEBUG] Python能看到它吗?: {os.path.exists(fname)}\n")
+    # === 🟢 插入结束 ===
     with open(fname, 'r') as fin:                     # 逐行读取 audio-ref 列表
         for line in fin:
             _, audio, ref = line.split(None, 2)       # 每行格式：<id> <audio_path> <transcript>

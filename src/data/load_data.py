@@ -23,8 +23,9 @@ def load_data(core_args):
             return None, _mgb()
         elif data_name == 'artie':     # ARTIE 偏见测试集
             return None, _artie()
-        elif data_name == 'librispeech':  # LibriSpeech 各子集
-            return _librispeech('dev_other'), _librispeech('test_other')
+        elif data_name == 'librispeech':
+                # 改成 clean
+            return _librispeech('dev-clean'), _librispeech('test-clean')
         else:
             raise ValueError(f"Unknown dataset name: {data_name}")  # 未知名称直接报错
 

@@ -38,6 +38,7 @@ Fork 仓库并 clone：
 
 ```
 conda env create -f environment_py310.yml
+conda env update -f environment_py310.yml
 conda activate env_py310
 ```
 
@@ -79,7 +80,18 @@ conda activate env_py310
 - `not-none`：传入后不评估“无攻击”设置。
 
 示例：
-`python eval_attack.py --model_name whisper-medium-multi --data_name librispeech --attack_method audio-raw --clip_val 0.02 --attack_size 10240 --attack_epoch 160 --not_none`
+`python eval_attack.py \
+  --model_name whisper-medium-multi \
+  --data_name librispeech \
+  --attack_method audio-raw \
+  --clip_val 0.02 \
+  --attack_size 10240 \
+  --attack_epoch 10 \
+  --transfer \
+  --attack_model_dir \
+  ./experiments/librispeech/whisper-small-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models \
+  --not_none
+`
 
 ### 迁移攻击评估
 
