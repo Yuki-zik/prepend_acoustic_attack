@@ -29,6 +29,11 @@ def load_data(core_args):
         else:
             raise ValueError(f"Unknown dataset name: {data_name}")  # 未知名称直接报错
 
+    def _maybe_limit_split(split, limit):
+        if split is None or limit is None:
+            return split
+        return split[:limit]
+
     if isinstance(core_args.data_name, list) and len(core_args.data_name) > 1:
         train_data_combined, test_data_combined = [], []   # 聚合多数据集样本
         for data_name in core_args.data_name:
@@ -37,10 +42,15 @@ def load_data(core_args):
                 train_data_combined.extend(train_data)      # 追加训练样本
             if test_data is not None:
                 test_data_combined.extend(test_data)        # 追加测试样本
+        train_data_combined = _maybe_limit_split(train_data_combined, core_args.max_train_samples)
+        test_data_combined = _maybe_limit_split(test_data_combined, core_args.max_test_samples)
         return train_data_combined, test_data_combined      # 返回合并后的集合
     else:
         # data_name 为单个字符串或长度为 1 的列表时直接加载
-        return load_single_dataset(core_args.data_name[0] if isinstance(core_args.data_name, list) else core_args.data_name)
+        train_data, test_data = load_single_dataset(core_args.data_name[0] if isinstance(core_args.data_name, list) else core_args.data_name)
+        train_data = _maybe_limit_split(train_data, core_args.max_train_samples)
+        test_data = _maybe_limit_split(test_data, core_args.max_test_samples)
+        return train_data, test_data
 
 
 
