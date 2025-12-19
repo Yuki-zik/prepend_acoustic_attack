@@ -4,7 +4,7 @@ import torch
 from tqdm import tqdm
 
 
-from src.tools.tools import eval_neg_seq_len, eval_frac_0_samples, eval_wer, eval_average_fraction_of_languages, eval_bleu, eval_bleu_dist, eval_comet, eval_comet_dist, eval_english_probability, eval_english_probability_dist, eval_bleu_english_prob_recall, eval_comet_english_prob_recall
+from src.tools.tools import eval_neg_seq_len, eval_frac_0_samples, eval_wer, eval_average_fraction_of_languages, eval_bleu, eval_bleu_dist, eval_comet, eval_comet_dist, eval_english_probability, eval_english_probability_dist, eval_bleu_english_prob_recall, eval_comet_english_prob_recall, AverageMeter
 from .audio_attack_model_wrapper import AudioAttackModelWrapper
 from .audio_attack_canary_model_wrapper import AudioAttackCanaryModelWrapper
 
@@ -105,12 +105,21 @@ class AudioBaseAttacker():
             if attack_epoch > 0:
                 self.audio_attack_model.load_state_dict(torch.load(f'{attack_model_dir}/epoch{attack_epoch}/model.th'))
 
+        snr_meter = AverageMeter() if do_attack else None
         hyps = []
         for sample in tqdm(data):
             with torch.no_grad():
-                hyp = self.audio_attack_model.transcribe(self.whisper_model, sample['audio'], do_attack=do_attack)
+                if do_attack:
+                    hyp, snr = self.audio_attack_model.transcribe(self.whisper_model, sample['audio'], do_attack=do_attack, return_snr=True)
+                    if snr is not None:
+                        snr_meter.update(snr, 1)
+                else:
+                    hyp = self.audio_attack_model.transcribe(self.whisper_model, sample['audio'], do_attack=do_attack)
             hyps.append(hyp)
         out = self.evaluate_metrics(hyps, data, metrics, frac_lang_languages)
+
+        if snr_meter is not None:
+            out['Average SNR (dB)'] = snr_meter.avg
 
         if cache_dir is not None:
             with open(fpath, 'w') as f:

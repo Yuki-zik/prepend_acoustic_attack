@@ -2,6 +2,8 @@ import torch                                                          # 张量/�
 import torch.nn as nn                                                 # 神经网络层
 from whisper.audio import log_mel_spectrogram, pad_or_trim, N_SAMPLES, N_FRAMES, load_audio  # 音频处理
 
+from .snr import calculate_snr
+
 class AudioAttackModelWrapper(nn.Module):
     '''
         Whisper Model wrapper with learnable audio segment attack prepended to speech signals
@@ -34,13 +36,26 @@ class AudioAttackModelWrapper(nn.Module):
 
             Returns the logits
         '''
-        # 在原始波形前拼接可学习攻击段
-        X = self.audio_attack_segment.unsqueeze(0).expand(audio_vector.size(0), -1)  # 扩展到 batch
-        attacked_audio_vector = torch.cat((X, audio_vector), dim=1)                  # 拼接得到攻击后音频
+        attacked_audio_vector, _ = self._prepend_attack_to_batch(audio_vector)       # 拼接得到攻击后音频
 
         # forward pass through full model
         mel = self._audio_to_mel(attacked_audio_vector, whisper_model)               # 转 mel 频谱
         return self._mel_to_logit(mel, whisper_model, decoder_input=decoder_input)   # 通过解码器得到 logits
+
+
+    def _prepend_attack_to_batch(self, audio_vector: torch.Tensor):
+        attack = self.audio_attack_segment.unsqueeze(0).expand(audio_vector.size(0), -1)
+        attacked_audio_vector = torch.cat((attack, audio_vector), dim=1)
+        clean_audio_vector = torch.cat((torch.zeros_like(attack), audio_vector), dim=1)
+        return attacked_audio_vector, clean_audio_vector
+
+    def _prepend_attack_to_audio(self, audio_vector: torch.Tensor):
+        attacked_audio, clean_audio = self._prepend_attack_to_batch(audio_vector.unsqueeze(0))
+        return attacked_audio.squeeze(0), clean_audio.squeeze(0)
+
+    def compute_batch_snr(self, audio_vector: torch.Tensor):
+        attacked_audio_vector, clean_audio_vector = self._prepend_attack_to_batch(audio_vector)
+        return calculate_snr(clean_audio_vector, attacked_audio_vector)
     
 
     def _audio_to_mel(self, audio: torch.Tensor, whisper_model):
@@ -83,7 +98,8 @@ class AudioAttackModelWrapper(nn.Module):
         whisper_model,
         audio,
         do_attack=True,
-        without_timestamps=False
+        without_timestamps=False,
+        return_snr=False,
     ):
 
         '''
@@ -92,13 +108,23 @@ class AudioAttackModelWrapper(nn.Module):
 
                 do_attack parameter is a boolean to do the attack or not
         '''
+        snr = None
         if do_attack:
             # prepend attack
             if isinstance(audio, str):
                 audio = load_audio(audio)                                            # 路径则先加载
-            audio = torch.from_numpy(audio).to(self.device)                          # 转张量
-            audio = torch.cat((self.audio_attack_segment, audio), dim=0)             # 拼接攻击段
+            if isinstance(audio, torch.Tensor):
+                audio_tensor = audio.to(self.device)
+            else:
+                audio_tensor = torch.from_numpy(audio).to(self.device)               # 转张量
 
-        return whisper_model.predict(audio, without_timestamps=without_timestamps)   # 调用封装模型预测
+            audio, clean_audio = self._prepend_attack_to_audio(audio_tensor)         # 拼接攻击段
+            snr = calculate_snr(clean_audio, audio)                                  # 计算 SNR
+
+        hyp = whisper_model.predict(audio, without_timestamps=without_timestamps)    # 调用封装模型预测
+
+        if return_snr:
+            return hyp, snr.item() if snr is not None else None
+        return hyp
 
 

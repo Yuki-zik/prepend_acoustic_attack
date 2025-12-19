@@ -40,6 +40,7 @@ class AudioAttack(AudioBaseAttacker):
             Run one train epoch - Projected Gradient Descent
         '''
         losses = AverageMeter()                                                  # 记录损失
+        snrs = AverageMeter()                                                    # 记录 SNR
 
         # switch to train mode
         self.audio_attack_model.train()                                          # 训练模式
@@ -65,8 +66,12 @@ class AudioAttack(AudioBaseAttacker):
         
             # record loss
             losses.update(loss.item(), audio.size(0))                            # 更新统计
+            batch_snr = self.audio_attack_model.compute_batch_snr(audio)         # 计算当前 batch SNR
+            snrs.update(batch_snr.mean().item(), audio.size(0))                  # 更新 SNR 统计
             if i % print_freq == 0:
-                print(f'Epoch: [{epoch}][{i}/{len(train_loader)}]\tLoss {losses.val:.5f} ({losses.avg:.5f})')        
+                print(f'Epoch: [{epoch}][{i}/{len(train_loader)}]\tLoss {losses.val:.5f} ({losses.avg:.5f})\tSNR {snrs.val:.2f} ({snrs.avg:.2f})')
+
+        return losses.avg, snrs.avg
 
 
     @staticmethod
@@ -108,7 +113,8 @@ class AudioAttack(AudioBaseAttacker):
         for epoch in range(self.attack_args.max_epochs):
             # train for one epoch
             print('current lr {:.5e}'.format(self.optimizer.param_groups[0]['lr'])) # 打印学习率
-            self.train_step(train_dl, epoch)                                        # 单轮训练
+            avg_loss, avg_snr = self.train_step(train_dl, epoch)                    # 单轮训练
+            print(f'Epoch {epoch}: Average Loss {avg_loss:.5f}, Average SNR {avg_snr:.2f} dB')
 
             if epoch==self.attack_args.max_epochs-1 or (epoch+1)%self.attack_args.save_freq==0:
                 # save model at this epoch
