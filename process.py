@@ -7,6 +7,14 @@ import os
 import sys
 import numpy as np
 
+from src.attacker.audio_raw.audio_attack_model_wrapper import AudioAttackModelWrapper
+###
+# 使用脚本:
+# python process.py \
+#   --attack_model_path /root/autodl-tmp/prepend_acoustic_attack/experiments/librispeech/whisper-small-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models/epoch10/model.th \
+#   --save_path /root/autodl-tmp/prepend_acoustic_attack/audio_attack_segments/epoch10_extract.npy
+###
+
 
 def get_args():
     commandLineParser = argparse.ArgumentParser(allow_abbrev=False)
@@ -31,5 +39,14 @@ if __name__ == "__main__":
     if "audio_attack_segment" not in state_dict:                                   # 检查必需参数
         raise KeyError("audio_attack_segment not found in provided attack model")
 
+    # attack_model = AudioAttackModelWrapper(None, attack_size=10240)                 # 构建包装器占位（不需要 tokenizer）
+    # attack_model.load_state_dict(torch.load(f'{args.attack_model_path}'))            # 加载权重
+    # audio = attack_model.audio_attack_segment.cpu().detach().numpy()                # 取出可学习音频段
+    
+    # 从攻击模型 state dict 中直接提取可学习的音频对抗段并保存为 numpy 数组
+
+    state_dict = torch.load(f"{args.attack_model_path}", map_location="cpu")       # 读取 checkpoint
+    if "audio_attack_segment" not in state_dict:                                   # 检查必需参数
+        raise KeyError("audio_attack_segment not found in provided attack model")
     audio = state_dict["audio_attack_segment"].cpu().detach().numpy()              # 取出可学习音频段
     np.save(args.save_path, audio)                                                  # 保存为 numpy
