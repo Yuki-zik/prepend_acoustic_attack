@@ -1,8 +1,9 @@
 import torch                                                             # 张量/设备
 import torch.nn as nn                                                    # 网络层
-from whisper.audio import load_audio                                     # 音频读取
 import torchaudio                                                        # 保存临时音频
-from whisper.audio import log_mel_spectrogram, pad_or_trim, N_SAMPLES, N_FRAMES, load_audio  # mel 处理
+from whisper.audio import log_mel_spectrogram, pad_or_trim, N_SAMPLES, N_FRAMES, load_audio  # 音频处理
+
+from .snr import calculate_snr
 
 
 class AudioAttackCanaryModelWrapper(nn.Module):
@@ -94,6 +95,7 @@ class AudioAttackCanaryModelWrapper(nn.Module):
         canary_model,
         audio,
         do_attack=True,
+        return_snr=False,
     ):
 
         '''
@@ -102,12 +104,15 @@ class AudioAttackCanaryModelWrapper(nn.Module):
 
                 do_attack parameter is a boolean to do the attack or not
         '''
+        snr = None
         if do_attack:
             # prepend attack
             if isinstance(audio, str):
                 audio = load_audio(audio)                                            # 路径则加载
-            audio = torch.from_numpy(audio).to(self.device)                          # 转张量
-            audio = torch.cat((self.audio_attack_segment, audio), dim=0)             # 拼接攻击段
+            clean_audio = torch.from_numpy(audio).to(self.device)                    # 干净音频张量
+            audio = torch.cat((self.audio_attack_segment, clean_audio), dim=0)       # 拼接攻击段
+            clean_audio = torch.cat((torch.zeros_like(self.audio_attack_segment), clean_audio), dim=0)
+            snr = calculate_snr(clean_audio, audio)
 
             # Ensure audio tensor is in the correct shape [channels, samples]
             if audio.dim() == 1:
@@ -115,7 +120,12 @@ class AudioAttackCanaryModelWrapper(nn.Module):
             sample_rate = 16000
             torchaudio.save('experiments/temp_audio.wav', audio.cpu(), sample_rate)   # 保存临时 wav，供 Nemo 读取
 
-            return canary_model.predict('experiments/temp_audio.wav')                # 使用 Canary 预测
-        return canary_model.predict(audio)                                           # 不攻击直接预测
+            hyp = canary_model.predict('experiments/temp_audio.wav')                 # 使用 Canary 预测
+        else:
+            hyp = canary_model.predict(audio)                                        # 不攻击直接预测
+
+        if return_snr:
+            return hyp, snr.item() if snr is not None else None
+        return hyp
 
 
