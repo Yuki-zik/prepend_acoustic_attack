@@ -41,6 +41,18 @@ def core_args():
     commandLineParser.add_argument(
         "--force_cpu", action="store_true", help="force cpu use"                     # 强制使用 CPU
     )
+    commandLineParser.add_argument(
+        "--max_train_samples",
+        type=int,
+        default=None,
+        help="Limit number of training samples (first N); omit for all",
+    )
+    commandLineParser.add_argument(
+        "--max_test_samples",
+        type=int,
+        default=None,
+        help="Limit number of evaluation samples (first N); omit for all",
+    )
     return commandLineParser.parse_known_args()
 
 
