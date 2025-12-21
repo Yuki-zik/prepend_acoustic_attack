@@ -65,7 +65,7 @@ conda activate env_py310
 - `save_freq`：保存已学得攻击段的频率。
 
 示例：
-`python train_attack.py --model_name whisper-base-multi --data_name librispeech --attack_method audio-raw --max_epochs 40 --clip_val 0.02 --attack_size 10240 --save_freq 10`
+`python train_attack.py --model_name whisper-medium-multi --data_name librispeech --attack_method audio-raw --max_epochs 40 --clip_val 0.02 --attack_size 10240 --save_freq 10 --bs 8`
 
 ## 评估通用预置声学攻击
 
