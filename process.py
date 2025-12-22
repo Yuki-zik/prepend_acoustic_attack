@@ -11,9 +11,10 @@ from src.attacker.audio_raw.audio_attack_model_wrapper import AudioAttackModelWr
 ###
 # 使用脚本:
 # python process.py \
-#   --attack_model_path /root/autodl-tmp/prepend_acoustic_attack/experiments/librispeech/whisper-small-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models/epoch10/model.th \
-#   --save_path /root/autodl-tmp/prepend_acoustic_attack/audio_attack_segments/epoch10_extract.npy
+#   --attack_model_path /root/autodl-tmp/prepend_acoustic_attack/experiments/librispeech/whisper-medium-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models/epoch30/model.th \
+#   --save_path /root/autodl-tmp/prepend_acoustic_attack/audio_attack_segments/epoch30_extract.npy
 ###
+
 
 
 def get_args():

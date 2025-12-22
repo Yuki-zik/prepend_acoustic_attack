@@ -65,7 +65,7 @@ conda activate env_py310
 - `save_freq`：保存已学得攻击段的频率。
 
 示例：
-`python train_attack.py --model_name whisper-medium-multi --data_name librispeech --attack_method audio-raw --max_epochs 40 --clip_val 0.02 --attack_size 10240 --save_freq 10 --bs 8`
+`python train_attack.py --model_name whisper-medium-multi --data_name librispeech --attack_method audio-raw --max_epochs 40 --clip_val 0.02 --attack_size 10240 --save_freq 10 --bs 6 --disable_snr --amp`
 
 ## 评估通用预置声学攻击
 
@@ -86,12 +86,16 @@ conda activate env_py310
   --attack_method audio-raw \
   --clip_val 0.02 \
   --attack_size 10240 \
-  --attack_epoch 10 \
+  --attack_epoch 30 \
   --transfer \
   --attack_model_dir \
-  ./experiments/librispeech/whisper-small-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models \
+  ./experiments/librispeech/whisper-medium-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models \
   --not_none
 `
+
+/root/autodl-tmp/prepend_acoustic_attack/experiments/librispeech/whisper-medium-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models/epoch30
+
+/root/autodl-tmp/prepend_acoustic_attack/experiments/librispeech/whisper-medium-multi/transcribe/en/attack_train/audio-raw/attack_size10240/clip_val0.02/prepend_attack_models/epoch30/model.th
 
 ### 迁移攻击评估
 
