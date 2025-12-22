@@ -103,6 +103,16 @@ def attack_args():
         help="Value (maximum) to clip the log mel vectors. -1 means no clipping",     # 对抗向量裁剪阈值，-1 不裁剪
     )
     commandLineParser.add_argument(
+        "--amp",
+        action="store_true",
+        help="Enable mixed precision (autocast+GradScaler) to save GPU memory during training.",
+    )
+    commandLineParser.add_argument(
+        "--disable_snr",
+        action="store_true",
+        help="Skip SNR computation to save memory during training/evaluation.",       # 可关闭 SNR 计算以节省显存
+    )
+    commandLineParser.add_argument(
         "--attack_init",
         type=str,
         default="random",

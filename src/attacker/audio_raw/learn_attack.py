@@ -5,6 +5,7 @@ import random                                                        # 未用到
 import os                                                            # 文件操作
 from tqdm import tqdm                                                # 进度条
 from whisper.audio import load_audio                                 # 读取音频
+from torch.cuda.amp import GradScaler, autocast                      # 混合精度
 
 from .base import AudioBaseAttacker                                  # 基类
 from src.tools.tools import AverageMeter                             # 统计平均
@@ -19,6 +20,8 @@ class AudioAttack(AudioBaseAttacker):
         AudioBaseAttacker.__init__(self, attack_args, whisper_model, device, attack_init=attack_init)  # 初始化基类
         self.audio_attack_model.multiple_model_attack = multiple_model_attack                         # 是否集成攻击
         self.optimizer = torch.optim.AdamW(self.audio_attack_model.parameters(), lr=lr, eps=1e-8)     # 优化器
+        self.use_amp = bool(getattr(attack_args, 'amp', False) and device.type == 'cuda')             # 启用混合精度可节省显存
+        self.scaler = GradScaler(enabled=self.use_amp)                                                # 梯度缩放器
 
 
     def _loss(self, logits):
@@ -40,7 +43,7 @@ class AudioAttack(AudioBaseAttacker):
             Run one train epoch - Projected Gradient Descent
         '''
         losses = AverageMeter()                                                  # 记录损失
-        snrs = AverageMeter()                                                    # 记录 SNR
+        snrs = AverageMeter() if self.audio_attack_model.compute_snr else None   # 记录 SNR（可关闭）
 
         # switch to train mode
         self.audio_attack_model.train()                                          # 训练模式
@@ -49,13 +52,19 @@ class AudioAttack(AudioBaseAttacker):
             audio = audio[0].to(self.device)                                     # 取 batch 音频到设备
 
             # Forward pass
-            logits = self.audio_attack_model(audio, self.whisper_model)[:,-1,:].squeeze(dim=1)  # 仅取最后一步 logits
-            loss = self._loss(logits)                                            # 计算损失
+            with autocast(enabled=self.use_amp):
+                logits = self.audio_attack_model(audio, self.whisper_model)[:,-1,:].squeeze(dim=1)  # 仅取最后一步 logits
+                loss = self._loss(logits)                                        # 计算损失
 
             # Backward pass and update
             self.optimizer.zero_grad()                                           # 梯度清零
-            loss.backward()                                                      # 反向
-            self.optimizer.step()                                                # 更新
+            if self.use_amp:
+                self.scaler.scale(loss).backward()                               # 反向（缩放梯度）
+                self.scaler.step(self.optimizer)                                 # 更新
+                self.scaler.update()                                             # 更新缩放器
+            else:
+                loss.backward()                                                  # 反向
+                self.optimizer.step()                                            # 更新
 
             if self.attack_args.clip_val != -1:                                  # 可选幅度裁剪
                 max_val = self.attack_args.clip_val
@@ -66,12 +75,17 @@ class AudioAttack(AudioBaseAttacker):
         
             # record loss
             losses.update(loss.item(), audio.size(0))                            # 更新统计
-            batch_snr = self.audio_attack_model.compute_batch_snr(audio)         # 计算当前 batch SNR
-            snrs.update(batch_snr.mean().item(), audio.size(0))                  # 更新 SNR 统计
+            if snrs is not None:
+                batch_snr = self.audio_attack_model.compute_batch_snr(audio)         # 计算当前 batch SNR
+                if batch_snr is not None:
+                    snrs.update(batch_snr.mean().item(), audio.size(0))              # 更新 SNR 统计
             if i % print_freq == 0:
-                print(f'Epoch: [{epoch}][{i}/{len(train_loader)}]\tLoss {losses.val:.5f} ({losses.avg:.5f})\tSNR {snrs.val:.2f} ({snrs.avg:.2f})')
+                msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}]\tLoss {losses.val:.5f} ({losses.avg:.5f})'
+                if snrs is not None and snrs.count > 0:
+                    msg += f'\tSNR {snrs.val:.2f} ({snrs.avg:.2f})'
+                print(msg)
 
-        return losses.avg, snrs.avg
+        return losses.avg, snrs.avg if snrs is not None and snrs.count > 0 else None
 
 
     @staticmethod
@@ -114,7 +128,10 @@ class AudioAttack(AudioBaseAttacker):
             # train for one epoch
             print('current lr {:.5e}'.format(self.optimizer.param_groups[0]['lr'])) # 打印学习率
             avg_loss, avg_snr = self.train_step(train_dl, epoch)                    # 单轮训练
-            print(f'Epoch {epoch}: Average Loss {avg_loss:.5f}, Average SNR {avg_snr:.2f} dB')
+            msg = f'Epoch {epoch}: Average Loss {avg_loss:.5f}'
+            if avg_snr is not None:
+                msg += f', Average SNR {avg_snr:.2f} dB'
+            print(msg)
 
             if epoch==self.attack_args.max_epochs-1 or (epoch+1)%self.attack_args.save_freq==0:
                 # save model at this epoch

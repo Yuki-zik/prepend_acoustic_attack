@@ -18,8 +18,9 @@ class AudioBaseAttacker():
         self.device = device                                             # 设备
 
         # model wrapper with audio attack segment prepending ability
+        compute_snr = not getattr(attack_args, 'disable_snr', False)
         if 'whisper' in model.model_name:
-            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Whisper 版本包装
+            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init, compute_snr=compute_snr).to(device)  # Whisper 版本包装
         elif 'canary' in model.model_name:
             self.audio_attack_model = AudioAttackCanaryModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Canary 版本包装
 
@@ -105,7 +106,7 @@ class AudioBaseAttacker():
             if attack_epoch > 0:
                 self.audio_attack_model.load_state_dict(torch.load(f'{attack_model_dir}/epoch{attack_epoch}/model.th'))
 
-        snr_meter = AverageMeter() if do_attack else None
+        snr_meter = AverageMeter() if do_attack and self.audio_attack_model.compute_snr else None
         hyps = []
         for sample in tqdm(data):
             with torch.no_grad():
