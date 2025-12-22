@@ -24,6 +24,9 @@ class AudioBaseAttacker():
         elif 'canary' in model.model_name:
             self.audio_attack_model = AudioAttackCanaryModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Canary 版本包装
 
+        # keep attack wrapper dtype aligned with target model parameters
+        self.audio_attack_model.model_dtype = self._get_model_dtype()
+
 
     def _get_tgt_tkn_id(self):
         if self.attack_args.attack_token == 'eot':
