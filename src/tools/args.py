@@ -53,6 +53,13 @@ def core_args():
         default=None,
         help="Limit number of evaluation samples (first N); omit for all",
     )
+    commandLineParser.add_argument(
+        "--dtype",
+        type=str,
+        default="float32",
+        choices=["float32", "float16", "bfloat16"],
+        help="Model precision to control GPU memory footprint",
+    )
     return commandLineParser.parse_known_args()
 
 
@@ -101,6 +108,11 @@ def attack_args():
         type=float,
         default=-1,
         help="Value (maximum) to clip the log mel vectors. -1 means no clipping",     # 对抗向量裁剪阈值，-1 不裁剪
+    )
+    commandLineParser.add_argument(
+        "--disable_snr",
+        action="store_true",
+        help="Skip SNR computation to save memory during training/evaluation.",       # 可关闭 SNR 计算以节省显存
     )
     commandLineParser.add_argument(
         "--attack_init",

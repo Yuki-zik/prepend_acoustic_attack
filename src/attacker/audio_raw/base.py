@@ -18,8 +18,10 @@ class AudioBaseAttacker():
         self.device = device                                             # 设备
 
         # model wrapper with audio attack segment prepending ability
+        compute_snr = not getattr(attack_args, 'disable_snr', False)
+        model_dtype = self._get_model_dtype()
         if 'whisper' in model.model_name:
-            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Whisper 版本包装
+            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init, compute_snr=compute_snr, model_dtype=model_dtype).to(device)  # Whisper 版本包装
         elif 'canary' in model.model_name:
             self.audio_attack_model = AudioAttackCanaryModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Canary 版本包装
 
@@ -34,6 +36,17 @@ class AudioBaseAttacker():
             return eot_id
         elif self.attack_args.attack_token == 'transcribe':
             return self.whisper_model.tokenizer.transcribe    # Canary transcribe token
+
+    def _get_model_dtype(self):
+        # 优先读取主模型权重 dtype（支持单模型或集成）
+        try:
+            if hasattr(self.whisper_model, "model"):
+                return next(self.whisper_model.model.parameters()).dtype
+            if hasattr(self.whisper_model, "models") and len(self.whisper_model.models) > 0:
+                return next(self.whisper_model.models[0].parameters()).dtype
+        except StopIteration:
+            pass
+        return torch.float32
 
     def evaluate_metrics(self, hyps, refs_data, metrics, frac_lang_languages, attack=False):
         # 根据配置动态计算多种指标，方便统一评估
@@ -105,7 +118,7 @@ class AudioBaseAttacker():
             if attack_epoch > 0:
                 self.audio_attack_model.load_state_dict(torch.load(f'{attack_model_dir}/epoch{attack_epoch}/model.th'))
 
-        snr_meter = AverageMeter() if do_attack else None
+        snr_meter = AverageMeter() if do_attack and self.audio_attack_model.compute_snr else None
         hyps = []
         for sample in tqdm(data):
             with torch.no_grad():
