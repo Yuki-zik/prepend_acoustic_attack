@@ -40,7 +40,7 @@ class AudioAttack(AudioBaseAttacker):
             Run one train epoch - Projected Gradient Descent
         '''
         losses = AverageMeter()                                                  # 记录损失
-        snrs = AverageMeter()                                                    # 记录 SNR
+        snrs = AverageMeter() if self.audio_attack_model.compute_snr else None   # 记录 SNR（可关闭）
 
         # switch to train mode
         self.audio_attack_model.train()                                          # 训练模式
@@ -66,12 +66,17 @@ class AudioAttack(AudioBaseAttacker):
         
             # record loss
             losses.update(loss.item(), audio.size(0))                            # 更新统计
-            batch_snr = self.audio_attack_model.compute_batch_snr(audio)         # 计算当前 batch SNR
-            snrs.update(batch_snr.mean().item(), audio.size(0))                  # 更新 SNR 统计
+            if snrs is not None:
+                batch_snr = self.audio_attack_model.compute_batch_snr(audio)         # 计算当前 batch SNR
+                if batch_snr is not None:
+                    snrs.update(batch_snr.mean().item(), audio.size(0))              # 更新 SNR 统计
             if i % print_freq == 0:
-                print(f'Epoch: [{epoch}][{i}/{len(train_loader)}]\tLoss {losses.val:.5f} ({losses.avg:.5f})\tSNR {snrs.val:.2f} ({snrs.avg:.2f})')
+                msg = f'Epoch: [{epoch}][{i}/{len(train_loader)}]\tLoss {losses.val:.5f} ({losses.avg:.5f})'
+                if snrs is not None and snrs.count > 0:
+                    msg += f'\tSNR {snrs.val:.2f} ({snrs.avg:.2f})'
+                print(msg)
 
-        return losses.avg, snrs.avg
+        return losses.avg, snrs.avg if snrs is not None and snrs.count > 0 else None
 
 
     @staticmethod
@@ -114,7 +119,10 @@ class AudioAttack(AudioBaseAttacker):
             # train for one epoch
             print('current lr {:.5e}'.format(self.optimizer.param_groups[0]['lr'])) # 打印学习率
             avg_loss, avg_snr = self.train_step(train_dl, epoch)                    # 单轮训练
-            print(f'Epoch {epoch}: Average Loss {avg_loss:.5f}, Average SNR {avg_snr:.2f} dB')
+            msg = f'Epoch {epoch}: Average Loss {avg_loss:.5f}'
+            if avg_snr is not None:
+                msg += f', Average SNR {avg_snr:.2f} dB'
+            print(msg)
 
             if epoch==self.attack_args.max_epochs-1 or (epoch+1)%self.attack_args.save_freq==0:
                 # save model at this epoch

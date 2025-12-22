@@ -8,12 +8,13 @@ class AudioAttackModelWrapper(nn.Module):
     '''
         Whisper Model wrapper with learnable audio segment attack prepended to speech signals
     '''
-    def __init__(self, tokenizer, attack_size=5120, device=None, attack_init='random'):
+    def __init__(self, tokenizer, attack_size=5120, device=None, attack_init='random', compute_snr=True):
         super(AudioAttackModelWrapper, self).__init__()
         self.attack_size = attack_size                                # 对抗段长度
         self.tokenizer = tokenizer                                    # Whisper tokenizer
         self.device = device                                          # 设备
         self.multiple_model_attack = False                            # 是否针对集成模型
+        self.compute_snr = compute_snr                                # 是否计算 SNR
 
         self.sot_ids = self.tokenizer.sot_sequence_including_notimestamps  # SOT token 序列
         self.len_sot_ids = len(torch.tensor(self.sot_ids))            # SOT token 数量
@@ -54,6 +55,8 @@ class AudioAttackModelWrapper(nn.Module):
         return attacked_audio.squeeze(0), clean_audio.squeeze(0)
 
     def compute_batch_snr(self, audio_vector: torch.Tensor):
+        if not self.compute_snr:
+            return None
         attacked_audio_vector, clean_audio_vector = self._prepend_attack_to_batch(audio_vector)
         return calculate_snr(clean_audio_vector.detach().cpu(), attacked_audio_vector.detach().cpu())
     
@@ -119,7 +122,8 @@ class AudioAttackModelWrapper(nn.Module):
                 audio_tensor = torch.from_numpy(audio).to(self.device)               # 转张量
 
             audio, clean_audio = self._prepend_attack_to_audio(audio_tensor)         # 拼接攻击段
-            snr = calculate_snr(clean_audio.detach().cpu(), audio.detach().cpu())    # 计算 SNR（在 CPU 上）
+            if return_snr and self.compute_snr:
+                snr = calculate_snr(clean_audio.detach().cpu(), audio.detach().cpu())    # 计算 SNR（在 CPU 上）
 
         hyp = whisper_model.predict(audio, without_timestamps=without_timestamps)    # 调用封装模型预测
 
