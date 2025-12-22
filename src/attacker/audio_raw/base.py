@@ -19,9 +19,8 @@ class AudioBaseAttacker():
 
         # model wrapper with audio attack segment prepending ability
         compute_snr = not getattr(attack_args, 'disable_snr', False)
-        model_dtype = self._get_model_dtype()
         if 'whisper' in model.model_name:
-            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init, compute_snr=compute_snr, model_dtype=model_dtype).to(device)  # Whisper 版本包装
+            self.audio_attack_model = AudioAttackModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init, compute_snr=compute_snr).to(device)  # Whisper 版本包装
         elif 'canary' in model.model_name:
             self.audio_attack_model = AudioAttackCanaryModelWrapper(self.whisper_model.tokenizer, attack_size=attack_args.attack_size, device=device, attack_init=attack_init).to(device)  # Canary 版本包装
 
