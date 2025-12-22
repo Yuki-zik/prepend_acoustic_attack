@@ -104,7 +104,7 @@ if __name__ == "__main__":
         print(device)
 
         # Load the two models (m and n)
-        whisper_model = load_model(core_args)
+        whisper_model = load_model(core_args, load_ensemble=True)
         model_m = whisper_model.models[0]
         model_n = whisper_model.models[1]
 

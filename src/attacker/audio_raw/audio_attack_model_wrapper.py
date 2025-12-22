@@ -55,7 +55,7 @@ class AudioAttackModelWrapper(nn.Module):
 
     def compute_batch_snr(self, audio_vector: torch.Tensor):
         attacked_audio_vector, clean_audio_vector = self._prepend_attack_to_batch(audio_vector)
-        return calculate_snr(clean_audio_vector, attacked_audio_vector)
+        return calculate_snr(clean_audio_vector.detach().cpu(), attacked_audio_vector.detach().cpu())
     
 
     def _audio_to_mel(self, audio: torch.Tensor, whisper_model):
@@ -119,7 +119,7 @@ class AudioAttackModelWrapper(nn.Module):
                 audio_tensor = torch.from_numpy(audio).to(self.device)               # 转张量
 
             audio, clean_audio = self._prepend_attack_to_audio(audio_tensor)         # 拼接攻击段
-            snr = calculate_snr(clean_audio, audio)                                  # 计算 SNR
+            snr = calculate_snr(clean_audio.detach().cpu(), audio.detach().cpu())    # 计算 SNR（在 CPU 上）
 
         hyp = whisper_model.predict(audio, without_timestamps=without_timestamps)    # 调用封装模型预测
 
