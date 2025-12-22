@@ -68,7 +68,8 @@ if __name__ == "__main__":
 
     # load model
     # 加载目标 Whisper 模型，并将其移动到指定的计算设备上
-    model = load_model(core_args, device=device)
+    multiple_model_attack = len(core_args.model_name) > 1
+    model = load_model(core_args, device=device, load_ensemble=multiple_model_attack)
 
     # 初始化攻击器
     # 根据 attack_args 配置（如 'audio-raw'），选择对应的攻击类实例
