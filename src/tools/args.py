@@ -53,6 +53,13 @@ def core_args():
         default=None,
         help="Limit number of evaluation samples (first N); omit for all",
     )
+    commandLineParser.add_argument(
+        "--dtype",
+        type=str,
+        default="float32",
+        choices=["float32", "float16", "bfloat16"],
+        help="Model precision to control GPU memory footprint",
+    )
     return commandLineParser.parse_known_args()
 
 

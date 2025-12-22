@@ -71,7 +71,7 @@ class AudioAttackModelWrapper(nn.Module):
         else:
             n_mels = whisper_model.model.dims.n_mels                                 # 单模型 mel 维度
         padded_mel = log_mel_spectrogram(audio, n_mels, padding=N_SAMPLES)           # 计算 log-mel 并补长
-        mel = pad_or_trim(padded_mel, N_FRAMES)                                      # 截断/填充到固定帧
+        mel = pad_or_trim(padded_mel, N_FRAMES).to(device=self.device, dtype=self.model_dtype)  # 截断/填充到固定帧并匹配精度
         return mel
     
     def _mel_to_logit(self, mel: torch.Tensor, whisper_model, decoder_input=None):

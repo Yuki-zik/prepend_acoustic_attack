@@ -36,6 +36,17 @@ class AudioBaseAttacker():
         elif self.attack_args.attack_token == 'transcribe':
             return self.whisper_model.tokenizer.transcribe    # Canary transcribe token
 
+    def _get_model_dtype(self):
+        # 优先读取主模型权重 dtype（支持单模型或集成）
+        try:
+            if hasattr(self.whisper_model, "model"):
+                return next(self.whisper_model.model.parameters()).dtype
+            if hasattr(self.whisper_model, "models") and len(self.whisper_model.models) > 0:
+                return next(self.whisper_model.models[0].parameters()).dtype
+        except StopIteration:
+            pass
+        return torch.float32
+
     def evaluate_metrics(self, hyps, refs_data, metrics, frac_lang_languages, attack=False):
         # 根据配置动态计算多种指标，方便统一评估
         refs = [d['ref'] for d in refs_data]

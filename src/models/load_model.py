@@ -1,5 +1,6 @@
 from .whisper import WhisperModel, WhisperModelEnsemble  # Whisper 封装
 from .canary import CanaryModel                          # Canary 封装
+import torch
 
 
 def load_model(core_args, device=None, load_ensemble=False):
