@@ -15,7 +15,7 @@ class AudioAttackModelWrapper(nn.Module):
         self.device = device                                          # 设备
         self.multiple_model_attack = False                            # 是否针对集成模型
         self.compute_snr = compute_snr                                # 是否计算 SNR
-        self.model_dtype = torch.float32                              # 默认精度，初始化时可被覆盖
+        self.model_dtype = torch.float32                              # 默认精度，可在 wrapper 构造完成后被覆盖
 
         self.sot_ids = self.tokenizer.sot_sequence_including_notimestamps  # SOT token 序列
         self.len_sot_ids = len(torch.tensor(self.sot_ids))            # SOT token 数量
@@ -131,5 +131,4 @@ class AudioAttackModelWrapper(nn.Module):
         if return_snr:
             return hyp, snr.item() if snr is not None else None
         return hyp
-
 
